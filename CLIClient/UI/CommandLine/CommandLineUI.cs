@@ -7,6 +7,7 @@ using Client.Authentication;
 using Client.Chat;
 using Client.Chat.Definitions;
 using Client.World;
+using Client.World.Definitions;
 using Client.World.Network;
 
 namespace Client.UI.CommandLine
@@ -16,6 +17,8 @@ namespace Client.UI.CommandLine
         #region Private Members
         private LogLevel _logLevel;
         private StreamWriter _logFile;
+        private string _chatHeader; // keeps info on the last written chat (so that we don't have to write /say twice, it 'sticks')
+        private string _chatTarget; // used for /whisper <target>, keeps the <target>
 
         #endregion
 
@@ -23,6 +26,8 @@ namespace Client.UI.CommandLine
         {
             _logFile = new StreamWriter(String.Format("{0}.log", DateTime.Now).Replace(':', '_').Replace('/', '-'));
             _logFile.AutoFlush = true;
+            _chatHeader = "/say";
+            _chatTarget = "";
 
             InitializeKeybinds();
         }
@@ -42,10 +47,65 @@ namespace Client.UI.CommandLine
             if (Game.World.SelectedCharacter == null)
                 return;
 
-            ConsoleKeyInfo keyPress = Console.ReadKey();
-            KeyBind handler;
-            if (_keyPressHandlers.TryGetValue(keyPress.Key, out handler))
-                handler();
+            string s = Console.ReadLine();
+
+            string message = s;
+            if (s.StartsWith("/")) // client command
+            {
+                int idx = s.IndexOf(" "); // first space, get the end of the '/' command
+                _chatHeader = s.Substring(0, idx);
+                message = s.Substring(idx + 1); // after the space
+            }
+
+            if (_chatHeader.StartsWith("/s")) // "/say"
+            {
+                var response = new OutPacket(WorldCommand.CMSG_MESSAGECHAT);
+
+                response.Write((uint)ChatMessageType.Say);
+                var race = Game.World.SelectedCharacter.Race;
+                var language = race.IsHorde() ? Language.Orcish : Language.Common;
+                response.Write((uint)language);
+                response.Write(message.ToCString());
+                Game.SendPacket(response);
+            }
+            else if (_chatHeader.StartsWith("/y")) // "/yell"
+            {
+                var response = new OutPacket(WorldCommand.CMSG_MESSAGECHAT);
+
+                response.Write((uint)ChatMessageType.Yell);
+                var race = Game.World.SelectedCharacter.Race;
+                var language = race.IsHorde() ? Language.Orcish : Language.Common;
+                response.Write((uint)language);
+                response.Write(message.ToCString());
+                Game.SendPacket(response);
+            }
+            else if (_chatHeader.StartsWith("/g")) // "/guild"
+            {
+                var response = new OutPacket(WorldCommand.CMSG_MESSAGECHAT);
+
+                response.Write((uint)ChatMessageType.Guild);
+                var race = Game.World.SelectedCharacter.Race;
+                var language = race.IsHorde() ? Language.Orcish : Language.Common;
+                response.Write((uint)language);
+                response.Write(message.ToCString());
+                Game.SendPacket(response);
+            }
+            else if (_chatHeader.StartsWith("/w")) // "/whisper <target>"
+            {
+                var response = new OutPacket(WorldCommand.CMSG_MESSAGECHAT);
+
+                if (s.StartsWith("/w")) // if it's the /w command being used, get the target, it must be in the string
+                    _chatTarget = message.Substring(0, message.IndexOf(" "));
+                // else, we're using last _chatHeader, and thus last _chatTarget
+
+                response.Write((uint)ChatMessageType.Whisper);
+                var race = Game.World.SelectedCharacter.Race;
+                var language = race.IsHorde() ? Language.Orcish : Language.Common;
+                response.Write((uint)language);
+                response.Write(_chatTarget.ToCString());
+                response.Write(message.ToCString());
+                Game.SendPacket(response);
+            }
         }
 
         public void Exit()
