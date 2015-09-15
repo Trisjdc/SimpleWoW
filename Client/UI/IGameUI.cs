@@ -12,6 +12,9 @@ namespace Client.UI
         LogLevel LogLevel { get; set; }
 
         void Update();
+
+        void UpdateCommands();
+
         void Exit();
 
         #region Packet handler presenters

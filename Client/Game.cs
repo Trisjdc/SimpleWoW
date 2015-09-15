@@ -82,6 +82,10 @@ namespace Client
             // the initial socket is an AuthSocket - it will initiate its own asynch read
             Running = socket.Connect();
 
+            ThreadStart work = RunCommands;
+            Thread thread = new Thread(work);
+            thread.Start();
+
             while (Running)
             {
                 // main loop here
@@ -89,7 +93,19 @@ namespace Client
                 Thread.Sleep(100);
             }
 
+            thread.Join();
+
             UI.Exit();
+        }
+
+        public void RunCommands()
+        {
+            while (Running)
+            {
+                // main loop here
+                UI.UpdateCommands();
+                Thread.Sleep(100);
+            }
         }
 
         public void Exit()

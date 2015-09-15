@@ -57,6 +57,12 @@ namespace Client.UI.CommandLine
                 response.Write(Game.World.SelectedCharacter.GUID);
                 Game.SendPacket(response);
             }
+        }
+
+        public void UpdateCommands()
+        {
+            if (Game.World.SelectedCharacter == null)
+                return;
 
             string s = Console.ReadLine();
             if (String.IsNullOrEmpty(s))
