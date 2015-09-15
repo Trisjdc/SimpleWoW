@@ -19,6 +19,7 @@ namespace Client.UI.CommandLine
         private StreamWriter _logFile;
         private string _chatHeader; // keeps info on the last written chat (so that we don't have to write /say twice, it 'sticks')
         private string _chatTarget; // used for /whisper <target>, keeps the <target>
+        private DateTime _lastKeepAliveTime;
 
         #endregion
 
@@ -28,6 +29,7 @@ namespace Client.UI.CommandLine
             _logFile.AutoFlush = true;
             _chatHeader = "/say";
             _chatTarget = "";
+            _lastKeepAliveTime = DateTime.UtcNow;
 
             InitializeKeybinds();
         }
@@ -47,14 +49,28 @@ namespace Client.UI.CommandLine
             if (Game.World.SelectedCharacter == null)
                 return;
 
+            TimeSpan diff = DateTime.UtcNow - _lastKeepAliveTime;
+            if (diff.TotalSeconds > 10)
+            {
+                _lastKeepAliveTime = DateTime.UtcNow;
+                OutPacket response = new OutPacket(WorldCommand.CMSG_NAME_QUERY);
+                response.Write(Game.World.SelectedCharacter.GUID);
+                Game.SendPacket(response);
+            }
+
             string s = Console.ReadLine();
+            if (String.IsNullOrEmpty(s))
+                return;
 
             string message = s;
             if (s.StartsWith("/")) // client command
             {
                 int idx = s.IndexOf(" "); // first space, get the end of the '/' command
-                _chatHeader = s.Substring(0, idx);
-                message = s.Substring(idx + 1); // after the space
+                if (idx != -1)
+                {
+                    _chatHeader = s.Substring(0, idx);
+                    message = s.Substring(idx + 1); // after the space
+                }
             }
 
             if (_chatHeader.StartsWith("/s")) // "/say"
@@ -95,7 +111,14 @@ namespace Client.UI.CommandLine
                 var response = new OutPacket(WorldCommand.CMSG_MESSAGECHAT);
 
                 if (s.StartsWith("/w")) // if it's the /w command being used, get the target, it must be in the string
-                    _chatTarget = message.Substring(0, message.IndexOf(" "));
+                {
+                    int idx = message.IndexOf(" ");
+                    if (idx != -1)
+                    {
+                        _chatTarget = message.Substring(0, idx);
+                        message = message.Substring(idx);
+                    }
+                }
                 // else, we're using last _chatHeader, and thus last _chatTarget
 
                 response.Write((uint)ChatMessageType.Whisper);
