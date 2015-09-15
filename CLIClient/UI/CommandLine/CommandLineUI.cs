@@ -129,6 +129,42 @@ namespace Client.UI.CommandLine
                 response.Write(message.ToCString());
                 Game.SendPacket(response);
             }
+            else if (_chatHeader.StartsWith("/join")) // "/join <channel>"
+            {
+                var response = new OutPacket(WorldCommand.CMSG_JOIN_CHANNEL);
+
+                uint channelId = 0;
+                // byte is uint8
+                byte unk1 = 0;
+                byte unk2 = 0;
+                int idx = message.IndexOf(" ");
+                if (idx == -1)
+                    return;
+
+                string channel = message.Substring(0, idx);
+                string password = "";
+
+                response.Write((uint)channelId);
+                response.Write((byte)unk1);
+                response.Write((byte)unk2);
+                response.Write(channel.ToCString());
+                response.Write(password.ToCString());
+                Game.SendPacket(response);
+            }
+            else if (_chatHeader.StartsWith("/leave")) // "/leave <channel>"
+            {
+                uint unk = 0;
+                int idx = message.IndexOf(" ");
+                if (idx == -1)
+                    return;
+
+                string channel = message.Substring(0, idx);
+
+                var response = new OutPacket(WorldCommand.CMSG_LEAVE_CHANNEL);
+                response.Write((uint)unk);
+                response.Write(channel.ToCString());
+                Game.SendPacket(response);
+            }
         }
 
         public void Exit()
